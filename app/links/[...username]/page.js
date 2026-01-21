@@ -1,59 +1,29 @@
-"use client";
-
-import React, { useEffect, useState } from "react";
+import React from "react";
 import List from "@/components/List";
+import User from "@/models/User";
+import connector from "@/lib/mongodb";
 
-const Page = ({ params }) => {
-  const [links, setLinks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [username, setUsername] = useState("");
+const Page = async ({ params }) => {
+  let user = null;
+  let username = "";
+  let error = null;
 
-  useEffect(() => {
-    async function dataFetch() {
-      try {
-        setLoading(true);
-        const resolvedParams = await params;
-        const user = resolvedParams.username[0];
-        setUsername(user);
+  try {
+    const resolvedParams = await params;
+    username = resolvedParams.username[0];
 
-        const res = await fetch(`/api/add?username=${user}`);
+    await connector();
+    user = await User.findOne({ username }).lean();
 
-        if (!res.ok) {
-          throw new Error("Failed to fetch links");
-        }
-
-        const resJson = await res.json();
-        setLinks(resJson.links || []);
-      } catch (err) {
-        console.error(err);
-        setError(err.message);
-        setLinks([]);
-      } finally {
-        setLoading(false);
-      }
+    if (!user) {
+      error = "User not found";
     }
-
-    dataFetch();
-  }, [params]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-500 to-teal-600 flex justify-center items-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-green-300 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-          <div className="absolute top-40 right-20 w-72 h-72 bg-emerald-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-20 left-1/2 w-72 h-72 bg-teal-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
-        </div>
-        <div className="relative z-10">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-            <div className="text-white text-2xl font-light">Loading links...</div>
-          </div>
-        </div>
-      </div>
-    );
+  } catch (err) {
+    console.error(err);
+    error = "Failed to load links";
   }
+
+  const links = user?.links ? [...user.links].reverse() : [];
 
   if (error) {
     return (
@@ -100,7 +70,7 @@ const Page = ({ params }) => {
           {links.length > 0 ? (
             <div className="space-y-3">
               {links.map((item) => (
-                <List key={item._id} name={item.name} url={item.url} />
+                <List key={item._id.toString()} name={item.name} url={item.url} />
               ))}
             </div>
           ) : (
