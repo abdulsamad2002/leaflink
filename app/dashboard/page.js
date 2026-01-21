@@ -10,6 +10,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [links, setLinks] = useState([]);
+  const [loadingLinks, setLoadingLinks] = useState(true);
+
 
   const {
     register,
@@ -18,6 +21,41 @@ export default function DashboardPage() {
     reset,
     formState: { errors },
   } = useForm();
+
+  const fetchLinks = async () => {
+    if (!session?.user?.email) return;
+    try {
+      setLoadingLinks(true);
+      const res = await fetch(`/api/add?email=${session.user.email}`);
+      const data = await res.json();
+      if (data.success) {
+        setLinks(data.links || []);
+      }
+    } catch (error) {
+      console.error("Error fetching links:", error);
+    } finally {
+      setLoadingLinks(false);
+    }
+  };
+
+  const handleDelete = async (linkId) => {
+    if (!confirm("Are you sure you want to delete this link?")) return;
+    try {
+      const res = await fetch(`/api/add?email=${session.user.email}&id=${linkId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.ok) {
+        fetchLinks();
+      } else {
+        alert(data.error || "Failed to delete link");
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("An error occurred while deleting the link");
+    }
+  };
+
 
   const onSubmit = async (data) => {
     console.log(data);
@@ -37,6 +75,7 @@ export default function DashboardPage() {
       if (response.ok) {
         setSubmitSuccess(true);
         reset();
+        fetchLinks();
         setTimeout(() => setSubmitSuccess(false), 3000);
       }
     } catch (error) {
@@ -52,6 +91,7 @@ export default function DashboardPage() {
       router.replace("/login");
       return;
     }
+    fetchLinks();
   }, [session, status, router]);
 
   if (status === "loading") {
@@ -205,9 +245,76 @@ export default function DashboardPage() {
                 </button>
               </form>
             </div>
+
+            <div className="mt-12">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                <svg
+                  className="w-7 h-7 text-emerald-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                  />
+                </svg>
+                Your Links
+              </h2>
+
+              {loadingLinks ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : links.length > 0 ? (
+                <div className="space-y-4">
+                  {links.map((link) => (
+                    <div
+                      key={link._id}
+                      className="group bg-white border-2 border-emerald-50 rounded-xl p-4 hover:border-emerald-200 transition-all duration-200 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-gray-800 truncate">
+                          {link.name}
+                        </h4>
+                        <p className="text-sm text-emerald-600 truncate">
+                          {link.url}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDelete(link._id)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+                        title="Delete Link"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                  <p className="text-gray-500">No links added yet. Add your first link above!</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
     </div>
   );
 }
